@@ -20,7 +20,9 @@ class SureVault extends Model
     	'phonenumber_must_be_verified',
     	'bvn_must_be_verified','user_id',
         'minloantenor',
-        'maxloantenor'
+        'maxloantenor',
+        'borrower_city_id',
+        'vault_creation_type'
     ];
 
 

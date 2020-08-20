@@ -32,6 +32,7 @@ class UserOfficeAddressController extends Controller
             'address' => 'required',
             'country_id' => 'required|numeric',
             'state_id' => 'required|numeric',
+            'city_id' => 'required|numeric',
             'employmentstatus' => 'required',
             'contact_number' => 'required',
             'company_name' => 'required'

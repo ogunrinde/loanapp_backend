@@ -10,6 +10,10 @@ use DB;
 use App\ConnectBorrowerToLender;
 use App\VaultWithdrawal;
 use App\Surevault;
+use App\MakeRequest;
+use App\PaymentSchedules;
+use App\Mail\Activitymail;
+use Illuminate\Support\Facades\Mail;
 
 class SureDealsController extends Controller
 {
@@ -21,6 +25,14 @@ class SureDealsController extends Controller
     public function index()
     {
         //
+    }
+
+    public function mail($subject,$name, $email, $disburse)
+    {
+       $data = array("subject" => $subject, "name" => $name, "disburse" => $disburse, "email" => base64_encode($email));
+       Mail::to($email)->send(new Activitymail($data));
+       
+       return true;
     }
 
     /**
@@ -37,7 +49,7 @@ class SureDealsController extends Controller
             'date_disbursed' => 'required|date',
             'mode_of_disbursement' => 'required',
             'Amount_disbursed' => 'required|numeric',
-            'connectionId' => 'required|numeric'
+            'dealId' => 'required|numeric'
         ]);
 
         if($validator->fails()) { 
@@ -47,12 +59,18 @@ class SureDealsController extends Controller
         DB::beginTransaction();
 
         try{
-            //Create Deal
-            $deal = suredeals::where(['lender_borrower_connection_id' => $request->connectionId])->first();
+            //Get Deal
+            $deal = suredeals::where(['id' => $request->dealId])->first();
 
             if($deal == null)
             {
                 $error['message'] = "Deal not Found";
+                return response()->json(['status' => 'failed', 'error'=>$error]);  
+            }
+
+            if($deal->Is_cash_disbursed == 1)
+            {
+                $error['message'] = "Cash is already disbursed";
                 return response()->json(['status' => 'failed', 'error'=>$error]);  
             }
             $deal->Is_cash_disbursed = $request->Is_cash_disbursed;
@@ -81,16 +99,75 @@ class SureDealsController extends Controller
                 $vault->fundamount = (float)$vault->fundamount - (float)$request->Amount_disbursed;
                 $vault->save();
             } 
+
+            //Create payment Schedules
+            $makerequest = MakeRequest::where(['id' => $connection->borrower_request_id])->first();
+            $surevault = Surevault::where(['id' => $connection->sure_vault_id])->first();
+            $data = $this->repaymentstructure($makerequest,$surevault,$request->Amount_disbursed);
+            $schedules = PaymentSchedules::insert($data);
+
             DB::commit();
+
+            if(env('APP_ENV') != 'local')
+                $this->mail('Sure Deals',$request->user()->name, $request->user()->email, $data);
+
             $request = suredeals::with(['borrower','lender','connect', 'request'])->where(['lender_id' => $request->user()->id,'Is_cash_disbursed' => '0'])->get();
-            return response(['status' => 'success', 'suredeal' => $deal,'request'=>$request]);
+            return response(['status' => 'success', 'VaultWithdrawal' => $res,'surevault'=>$vault, 'schedules' => $schedules]);
         }catch(Exception $e)
         {
             DB::rollback();
             $error['message'] = $e;
-            return response()->json(['status' => 'failed', 'error'=>$validator->errors()]);
+            return response()->json(['status' => 'failed', 'error'=>$error]);
         }  
     }
+
+    public function repaymentstructure($makerequest,$surevault,$amount)
+    {
+
+        $minloantenor = $surevault->minloantenor;
+        $interestperMonth = ((float)$surevault->minInterestperMonth / 100) * (float)$amount;
+        $totalInterestonloan = $interestperMonth * $minloantenor;
+        $totalamounttorepay = $amount + $totalInterestonloan;
+        $repaymentplan = $makerequest->repaymentplan;
+        $res = [];
+        if(strtolower($repaymentplan) == 'daily')
+        {
+            $total = $minloantenor * 30; //30 days make a month
+            $pay = (float)$totalamounttorepay / $total;
+            $iter = 1;
+        }
+        else if(strtolower($repaymentplan) == 'weekly')
+        {
+             $total = $minloantenor * 4; //how many week to pay
+             $pay = (float)$totalamounttorepay / $total;
+             $iter = 7;
+        }
+        else if(strtolower($repaymentplan) == 'monthly')
+        {
+             $total = $minloantenor; //how many months
+             $pay = (float)$totalamounttorepay / $total;
+             $iter = 30;
+        }
+        for($r = 0; $r < $total; $r++)
+        {
+           $f = $iter * ($r+1); 
+           $date = strtotime("+ ".$f." day");
+           $data = array(
+                    'borrower_id' =>$makerequest->user_id,
+                    'lender_id' =>$surevault->user_id,
+                    'borrower_request_id' =>$makerequest->id,
+                    'expected_amount_to_paid' => $pay,
+                    'dueDate' =>date('Y-m-d',$date),
+                    'status' =>'pending');   
+           $res[] = $data;
+        }
+        return $res;
+        //return response()->json(['status' => 'failed', 'error'=>$totalamounttorepay,'pay'=>$pay]);
+
+    }
+
+
+    
 
     public function vaultwithdrawal($request)
     {

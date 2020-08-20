@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Repayments;
 use Illuminate\Support\Facades\Validator;
+use App\Mail\Activitymail;
+use Illuminate\Support\Facades\Mail;
 
 class LoanrepaymentController extends Controller
 {
@@ -53,11 +55,31 @@ class LoanrepaymentController extends Controller
             return response()->json(['status' => 'failed', 'error'=>$validator->errors()]);            
         }
 
+        $lender = User::where(['lender_id' => $request->lender_id])->first();
+
+        if($lender == null)
+        {
+            $error['message'] = "Lender not Found";
+            return response(['status' => 'success', 'error' => $error]);
+        }    
+
         $data['borrower_id'] = $request->user()->id;
 
         $res = Repayments::Create($data);
 
+        if(env('APP_ENV') != 'local')
+            $this->mail("Loan Repayment", $lender->name, $lender->email, $data);
+
         return response(['status' => 'success', 'repayment' => $res]);
+    }
+
+
+    public function mail($subject,$name, $email, $data)
+    {
+       $data = array("subject" => $subject, "name" => $name , "email" => base64_encode($email), 'repayment' => $data);
+       Mail::to($email)->send(new Activitymail($data));
+       
+       return true;
     }
 
     /**

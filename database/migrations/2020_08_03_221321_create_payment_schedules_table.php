@@ -4,7 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-class CreateRepaymentsTable extends Migration
+class CreatePaymentSchedulesTable extends Migration
 {
     /**
      * Run the migrations.
@@ -13,16 +13,20 @@ class CreateRepaymentsTable extends Migration
      */
     public function up()
     {
-        Schema::create('repayments', function (Blueprint $table) {
+        Schema::create('payment_schedules', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('borrower_id');
             $table->unsignedBigInteger('lender_id');
             $table->unsignedBigInteger('borrower_request_id');
-            $table->integer('amount_paid')->nullable();
-            $table->dateTime('date_paid')->nullable();
-            $table->boolean('is_confirmed')->default(false);
-            $table->string('mode_of_payment')->nullable();
-            $table->string('remarks')->nullable();
+            $table->integer('expected_amount_to_paid');
+            $table->date('dueDate');
+            $table->boolean('Is_borrower_notified')->default(false);
+            $table->boolean('Is_lender_notified')->default(false);
+            $table->string('status');
+
+            $table->foreign('borrower_request_id')
+            ->references('id')
+            ->on('make_requests');
 
             $table->foreign('borrower_id')
             ->references('id')
@@ -31,10 +35,6 @@ class CreateRepaymentsTable extends Migration
             $table->foreign('lender_id')
             ->references('id')
             ->on('users');
-
-            $table->foreign('borrower_request_id')
-            ->references('id')
-            ->on('make_requests');
 
             $table->timestamps();
         });
@@ -47,6 +47,6 @@ class CreateRepaymentsTable extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('repayments');
+        Schema::dropIfExists('payment_schedules');
     }
 }

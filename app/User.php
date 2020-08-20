@@ -82,4 +82,11 @@ class User extends Authenticatable
     {
         return $this->hasOne('App\BankInformation','user_id','id');
     }
+
+    // public function userhomecountry()
+    // {
+    //     return $this->BelongsTo('App\Countries','user_id','id');
+    // }
+
+   
 }

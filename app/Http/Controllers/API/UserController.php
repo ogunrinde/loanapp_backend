@@ -21,18 +21,28 @@ class UserController extends Controller
     public function getprofile(Request $request,$id)
     {
     	$data = $request->all();
-
+        $home = null;
+        $office = null;
         $user = User::where(['id'=>$id])->with(['userdetails','homeaddress','officeaddress','socialmedia','bankdetails'])->first();
 
+        if(isset($user->homeaddress))
+        {
+            $home = UserHomeAddress::with(['userhomecountry','userhomestate'])->where(['user_id' => $user->homeaddress->user_id])->first();
+        }
+        if(isset($user->officeaddress))
+        {
+            $office = UserOfficeAddress::with(['userofficecountry','userofficestate'])->where(['user_id' => $user->officeaddress->user_id])->first();
+        }
 
-         return response(['status' => 'success', 'userprofile' => $user]);
+
+         return response(['status' => 'success', 'userprofile' => $user, 'homeaddress' => $home, 'officeaddress' => $office]);
     }
 
     public function getuserloanrequest(Request $request)
     {
     	$data = $request->all();
 
-    	$loanrequest = 
+    	//$loanrequest = 
 
         $loanrequest = MakeRequest::where(['user_id'=> $request->user()->id])->orderBy('id','DESC')->first();
 
@@ -41,13 +51,11 @@ class UserController extends Controller
         if($loanrequest != null)
         {
         	$matchingoffers = SureVault::where('maxRequestAmount', '>=', $loanrequest->requestAmount)
-                                    ->where('minRequestAmount', '<=', $loanrequest->requestAmount)
-                                    ->where('minInterestperMonth', '<=',$loanrequest->minInterestRate)
-                                    ->where('maxInterestperMonth', '>=', $loanrequest->maxInterestRate)
+                                    ->where('minInterestperMonth', '<=',$loanrequest->maxInterestRate)
                                     ->with('user')->get();
         }
 
-        return response(['status' => 'success', 'loanrequest' => $loanrequest, 'matchingoffers' => $matchingoffers]);
+        return response(['status' => 'success', 'loanrequest' => $loanrequest, 'offers' => $matchingoffers]);
         
     }
 

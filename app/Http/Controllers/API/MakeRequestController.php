@@ -9,6 +9,7 @@ use App\SureVault;
 use Illuminate\Support\Facades\Validator;
 use App\User;
 use App\UserDetails;
+use App\UserHomeAddress;
 
 class MakeRequestController extends Controller
 {
@@ -22,13 +23,17 @@ class MakeRequestController extends Controller
         $requestAmount = 1200;
         $minInterestRate = 6;
         $maxInterestRate = 12;
-        $matchingoffers = SureVault::with('user')
-                                    ->where('maxRequestAmount', '>=', $requestAmount)
-                                    ->where('minRequestAmount', '<=', $requestAmount)
-                                    ->where('minInterestperMonth', '<=',$minInterestRate)
-                                    ->where('maxInterestperMonth', '>=', $maxInterestRate)
-                                    ->get();
-        return $matchingoffers;                            
+        $borrower_country_id = 160;
+        $borrower_state_id = 2671;
+        $borrower_city_id = 30978;
+        $where = '';
+       
+        $matchingoffers = SureVault::where('maxRequestAmount', '>=', $requestAmount)
+                                    ->where('minInterestperMonth', '<=',$maxInterestRate)
+                                    ->with('user')->get();
+
+        return $matchingoffers;               
+        //array_search(needle, haystack)
     }
 
     public function peer(Request $request)
@@ -41,8 +46,9 @@ class MakeRequestController extends Controller
             'minInterestRate' => 'required|numeric',
             'repaymentplan' => 'required|string',
             'requiredcreditBereau' => 'required',
-            'lender_country_id' => 'required|numeric',
-            'lender_state_id' => 'required|numeric'
+            'mobile' => 'required'
+            // 'lender_country_id' => 'required|numeric',
+            // 'lender_state_id' => 'required|numeric'
         ]);
 
         if($validator->fails()) { 
@@ -55,17 +61,27 @@ class MakeRequestController extends Controller
 
         if($userdetails == null)
         {
-            $error['message'] = "Phone Number not Found";
+            $error['message'] = "Lender Phone Number not Found";
             return response(['status' => 'failed', 'error'=> $error ]);
         }
+
+        $userhomeaddress = UserHomeAddress::where(['user_id' => $userdetails->user_id])->first();
+
+        $data['lender_country_id'] = $userhomeaddress->country_id;
+        $data['lender_state_id'] = $userhomeaddress->state_id;
+        $data['lender_city_id'] = $userhomeaddress->city_id;
+        $data['user_id'] = $request->user()->id;
+        $data['request_type'] = 'peer to peer';
 
         $res = MakeRequest::Create($data);
 
         $surevault = SureVault::where('user_id', '=', $userdetails->user->id)
                                 ->where('fundamount','>', 0)
-                                ->get();
+                                ->with('user')->get();
+       
+        $res['peer'] = 1;                       
 
-        return response(['status' => 'success', 'loanrequest' => $res, 'matchingoffers' => $surevault]);
+        return response(['status' => 'success', 'loanrequest' => $res, 'offers' => $surevault]);
 
     }
 
@@ -73,7 +89,9 @@ class MakeRequestController extends Controller
     {
           $result = $this->processRequest($request);
 
-          return response(['status' => 'success', 'loanrequest' => null, 'matchingoffers' => $result]);
+          $res = MakeRequest::with('user')->where(['id' => $request->id])->first();
+
+          return response(['status' => 'success', 'loanrequest' => $res, 'offers' => $result]);
     }
 
     /**
@@ -102,20 +120,20 @@ class MakeRequestController extends Controller
         }
 
         $data['user_id'] = $request->user()->id;
+        $data['request_type'] = 'open request';
+        //$data['lender_city_id'] = $request->lender_city_id;
 
         $res = MakeRequest::Create($data);
 
         $result = $this->processRequest($request);
 
-       return response(['status' => 'success', 'loanrequest' => $res, 'matchingoffers' => $result]);
+       return response(['status' => 'success', 'loanrequest' => $res, 'offers' => $result]);
     }
 
     public function processRequest($request)
     {
         $matchingoffers = SureVault::where('maxRequestAmount', '>=', $request->requestAmount)
-                                    ->where('minRequestAmount', '<=', $request->requestAmount)
-                                    ->where('minInterestperMonth', '<=',$request->minInterestRate)
-                                    ->where('maxInterestperMonth', '>=', $request->maxInterestRate)
+                                    ->where('minInterestperMonth', '<=',$request->maxInterestRate)
                                     ->with('user')->get();
         return $matchingoffers;
     }

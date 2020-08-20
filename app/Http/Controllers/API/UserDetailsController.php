@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use App\User;
 use App\UserDetails;
 use Illuminate\Support\Facades\Validator;
+use App\Mail\Activitymail;
+use Illuminate\Support\Facades\Mail;
 
 class UserDetailsController extends Controller
 {
@@ -47,9 +49,20 @@ class UserDetailsController extends Controller
         $data['email'] = $request->user()->email;
         $data['user_id'] = $request->user()->id;
 
+        if(env('APP_ENV') != 'local')
+            $this->mail("Verify Account", $request->user()->name, $request->user()->email);
+
         $res = UserDetails::updateOrCreate(['user_id' => $request->user()->id],$data);
 
        return response(['status' => 'success', 'userdetails' => $res]);
+    }
+
+    public function mail($subject,$name, $email)
+    {
+       $data = array("subject" => $subject, "name" => $name , "email" => base64_encode($email));
+       Mail::to($email)->send(new Activitymail($data));
+       
+       return true;
     }
 
     /**

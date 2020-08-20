@@ -15,6 +15,9 @@ class VaultWithdrawal extends Model
 
     public function request()
     {
-        return $this->hasOne('App\MakeRequest');
+        return $this->hasOne('App\MakeRequest','id','make_request_id');
     }
+
+   
+
 }

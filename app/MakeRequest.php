@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class MakeRequest extends Model
 {
-    protected $fillable = ['requestAmount','loanperiod','maxInterestRate','minInterestRate','repaymentplan','requiredcreditBereau','lender_country_id','lender_state_id','user_id'];
+    protected $fillable = ['requestAmount','loanperiod','maxInterestRate','minInterestRate','repaymentplan','requiredcreditBereau','lender_country_id','lender_state_id','user_id','lender_city_id','request_type'];
 
     public function user()
     {

@@ -4,10 +4,9 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\UserHomeAddress;
-use Illuminate\Support\Facades\Validator;
+use App\Overdues;
 
-class UserHomeAddressController extends Controller
+class OverdueController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -16,7 +15,19 @@ class UserHomeAddressController extends Controller
      */
     public function index()
     {
-       
+        //
+    }
+
+    public function overdueforborrower(Request $request)
+    {
+        $overdues = Overdues::with(['lender','request', 'borrower','paymentschedule'])->where(['borrower_id' => $request->user()->id,'status' => 'pending'])->get();
+        return response()->json(['status' => 'success', 'borrower_overdues'=>$overdues]);
+    }
+
+    public function overdueforlender(Request $request)
+    {
+        $overdues = Overdues::with(['lender','request', 'borrower','paymentschedule'])->where(['lender_id' => $request->user()->id,'status' => 'pending'])->get();
+        return response()->json(['status' => 'success', 'lender_overdues'=>$overdues]);
     }
 
     /**
@@ -27,23 +38,7 @@ class UserHomeAddressController extends Controller
      */
     public function store(Request $request)
     {
-            $data = $request->all();
-            $validator = Validator::make($data, [
-                'address' => 'required',
-                'country_id' => 'required|numeric',
-                'state_id' => 'required|numeric',
-                'city_id' => 'required|numeric'
-            ]);
-
-            if($validator->fails()) { 
-                return response()->json(['status' => 'failed', 'error'=>$validator->errors()]);            
-            }
-
-            $data['user_id'] = $request->user()->id;
-
-            $res = UserHomeAddress::updateOrCreate(['user_id' => $request->user()->id],$data);
-
-           return response(['status' => 'success', 'userHomeAddress' => $res]);
+        
     }
 
     /**

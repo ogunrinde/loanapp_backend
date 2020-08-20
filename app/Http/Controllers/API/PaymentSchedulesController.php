@@ -4,10 +4,9 @@ namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\UserHomeAddress;
-use Illuminate\Support\Facades\Validator;
+use App\PaymentSchedules;
 
-class UserHomeAddressController extends Controller
+class PaymentSchedulesController extends Controller
 {
     /**
      * Display a listing of the resource.
@@ -16,7 +15,19 @@ class UserHomeAddressController extends Controller
      */
     public function index()
     {
-       
+        
+    }
+
+    public function borrower_payment_schedules(Request $request, $id)
+    {
+        $schedules = PaymentSchedules::with(['borrower','lender', 'request'])->where(['borrower_id' => $request->user()->id, 'borrower_request_id' => $id])->get();
+        return response()->json(['status' => 'success', 'schedules'=>$schedules]);
+    }
+
+    public function lender_payment_schedules(Request $request, $id)
+    {
+        $schedules = PaymentSchedules::with(['borrower','lender', 'request'])->where(['lender_id' => $request->user()->id, 'borrower_request_id' => $id])->get();
+        return response()->json(['status' => 'success', 'schedules'=>$schedules]);
     }
 
     /**
@@ -27,23 +38,7 @@ class UserHomeAddressController extends Controller
      */
     public function store(Request $request)
     {
-            $data = $request->all();
-            $validator = Validator::make($data, [
-                'address' => 'required',
-                'country_id' => 'required|numeric',
-                'state_id' => 'required|numeric',
-                'city_id' => 'required|numeric'
-            ]);
-
-            if($validator->fails()) { 
-                return response()->json(['status' => 'failed', 'error'=>$validator->errors()]);            
-            }
-
-            $data['user_id'] = $request->user()->id;
-
-            $res = UserHomeAddress::updateOrCreate(['user_id' => $request->user()->id],$data);
-
-           return response(['status' => 'success', 'userHomeAddress' => $res]);
+        //
     }
 
     /**
