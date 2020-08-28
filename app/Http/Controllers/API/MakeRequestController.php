@@ -38,7 +38,7 @@ class MakeRequestController extends Controller
 
     public function peer(Request $request)
     {
-         $data = $request->all();
+        $data = $request->all();
         $validator = Validator::make($data, [
             'requestAmount' => 'required|numeric',
             'loanperiod' => 'required',

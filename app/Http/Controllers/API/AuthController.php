@@ -10,6 +10,10 @@ use App\Mail\Activitymail;
 use Illuminate\Support\Facades\Mail;
 use App\UserDetails;
 use App\Verification;
+use App\userroles;
+use App\permissions;
+use App\roles;
+use DB;
 
 class AuthController extends Controller
 {
@@ -28,6 +32,8 @@ class AuthController extends Controller
 	    }
 
 	    $data['password'] = bcrypt($request->password);
+	    $data['userType'] = null;
+	    $data['active'] = 1;
 
 	    $user = User::create($data);
 
@@ -38,6 +44,108 @@ class AuthController extends Controller
 
 	    return response(['status' => 'success', 'user' => $user, 'access_token' => $accessToken]);
 	}
+
+	public function adminregister(Request $request)
+	{
+		$data = $request->all();
+		$validator = Validator::make($data, [
+            'name' => 'required|max:55',
+            'email' => 'email|required|unique:users',
+            'password' => 'required|confirmed'
+	    ]);
+
+	    if($validator->fails()) { 
+	                return response()->json(['status' => 'failed', 'error'=>$validator->errors()]);            
+	    }
+
+	    $admin = User::where(['userType' => 'admin'])->first();
+
+	    if($admin != "")
+	    {
+	    	$error['message'] = "An Admin is already Created";
+	    	return response()->json(['status' => 'failed', 'error'=> $error]);
+	    }
+
+	    DB::beginTransaction();
+	    try{
+	    	$data['password'] = bcrypt($request->password);
+		    $data['userType'] = 'admin';
+
+	   
+		    $user = User::create($data);
+
+		    $role['name'] = 'Admin';
+		    $role = roles::Create($role);
+		    $this->createpermission($role);
+
+		    $userrole['role_id'] = $role->id;
+		    $userrole['user_id'] = $user->id;
+		    userroles::updateOrCreate(["user_id" => $request->user_id],$userrole);
+
+		    $accessToken = $user->createToken('authToken')->accessToken;
+		    DB::commit();
+		    return response(['status' => 'success', 'user' => $user, 'access_token' => $accessToken, 'userType' => 'admin']);
+
+	    }catch(Exception $e)
+	    {
+	    	DB::rollback();
+            $error['message'] = $e;
+            return response()->json(['status' => 'failed', 'error'=>$error]);
+	    }
+
+	    
+	}
+
+	public function createpermission($role)
+	{
+		$res = [];
+		$res = ['Loan Request','Repayment','Vault','Loan Request','Surebanker User','User Management'];
+		for ($r = 0; $r < count($res);$r++) {
+    		$values = array("role_id" => $role->id, "doc_type" => $res[$r], "create" => 1, "approval" => 1, "view" => 1, "edit" => 1, "cancel" => 1, "deactivate" => 1);
+    		$response = permissions::updateOrCreate(['role_id' => $role->id, 'doc_type' => $res[$r]],$values);
+    	}
+    	return true;
+	}
+
+	public function adminlogin(Request $request)
+    {
+
+        $loginData = $request->validate([
+            'email' => 'email|required',
+            'password' => 'required'
+        ]);
+
+        if (!auth()->attempt($loginData)) {
+        	//$error['message'] = "Invalid Credentials";
+            return response(['status' => 'failed', 'message' => 'Invalid Credentials']);
+        }
+
+        // if(auth()->user()->userType != 'admin')
+        // {
+        // 	return response(['status' => 'failed', 'message' => 'Unauthorized User']);
+        // }
+
+        $role = userroles::where(['user_id' => $request->user()->id])->first();
+
+        if($role == null && $request->user()->userType == 'subadmin')
+        {
+        	return response(['status' => 'failed', 'message' => 'Unassign User, Contact Admin to Assign Role to You']);
+        }
+
+
+
+        $permissions = permissions::where(['role_id' => $role->role_id])->get();
+
+        if(count($permissions) == 0)
+        {
+        	return response(['status' => 'failed', 'message' => 'Unauthorized User, Contact Admin to Assign Permission to You']);
+        }
+
+        $accessToken = auth()->user()->createToken('authToken')->accessToken;
+
+        return response(['status' => 'success', 'user' => auth()->user(), 'access_token' => $accessToken, 'permissions' => $permissions, 'role' => $role]);
+
+    }
 
 	public function login(Request $request)
     {

@@ -87,7 +87,6 @@ class ConnectBorrowerToLenderController extends Controller
 
             //Update makerequest table set request Status to 1
             //1 means connected with lender
-            //2 means lender has approved
             $makerequest->requestStatus = 1;
             $makerequest->save();
             

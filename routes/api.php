@@ -24,8 +24,14 @@ use Illuminate\Support\Facades\Mail;
 Route::group(['middleware' => 'cors'], function(){
  
  	
-
+ 	
 	Route::post('/register','Api\AuthController@register');
+
+	Route::post('/adminregister','Api\AuthController@adminregister');
+
+	Route::post('/adminlogin','Api\AuthController@adminlogin');
+
+
 	Route::post('/login', 'Api\AuthController@login');
 	Route::get('/countries', 'Api\CountriesController@index');
 	Route::get('/state/{id}', 'Api\StatesController@index');
@@ -42,6 +48,31 @@ Route::group(['middleware' => 'cors'], function(){
 
 
 	Route::middleware('auth:api')->group( function(){
+
+		Route::get('/okay', function() {
+	       return response(['status' => 'success']);
+	 	})->middleware('permission:Loan Request:create');
+
+
+       Route::post('/role', 'Api\RolesController@store')->middleware('permission:User Management:create');
+       Route::get('/admins', 'Api\AdminController@index');
+       Route::post('/admin','Api\AdminController@store')->middleware('permission:User Management:create');
+       Route::get('/roles', 'Api\RolesController@index')->middleware('permission:User Management:view');
+       //Route::post('/role', 'Api\RolesController@store')->middleware('permission:User Management:create');
+       Route::post('/permission', 'Api\PermissionController@store')->middleware('permission:User Management:create');
+       Route::get('/permissions/{id}','Api\PermissionController@permissions')->middleware('permission:User Management:view');
+
+       Route::post('/userrole','Api\AdminController@userrole')->middleware('permission:User Management:create');
+       Route::get('/userrole/{id}','Api\AdminController@getuserrole')->middleware('permission:User Management:view');
+
+       Route::get('/sureusers', 'Api\AdminController@users')->middleware('permission:User Management:view');
+
+       Route::get('/getallvault','Api\AdminController@getallvault')->middleware('permission:Vault:view');
+       Route::get('/getallloansrequest','Api\AdminController@getallloansrequest')->middleware('permission:Loan Request:view');
+       Route::get('/getdeal/{id}', 'Api\AdminController@getdeal')->middleware('permission:Loan Request:view');
+       Route::get('/paymentschedules/{id}', 'Api\AdminController@paymentschedules')->middleware('permission:Loan Request:view');;
+       Route::get('/activitiesanalytics','Api\AdminController@activitiesanalytics')->middleware('permission:User Management:view');
+
 	   Route::get('/userdetails', 'Api\UserDetailsController@index');
 	   Route::post('/storeuserdetails', 'Api\UserDetailsController@store');
 	   Route::post('/userHomeAddress', 'Api\UserHomeAddressController@store');

@@ -11,6 +11,7 @@ use App\MakeRequest;
 use Illuminate\Support\Facades\Validator;
 use App\Mail\Activitymail;
 use Illuminate\Support\Facades\Mail;
+use DB;
 
 class LoansController extends Controller
 {
@@ -127,33 +128,52 @@ class LoansController extends Controller
             return response()->json(['status' => 'failed', 'error'=>$validator->errors()]);            
         }
 
-        $surevault = SureVault::where(['user_id'=>$request->user()->id])->orderBy('id', 'DESC')->first();
 
-        if($surevault == null)
+        DB::beginTransaction();
+
+        try {
+            $surevault = SureVault::where('user_id','=',$request->user()->id)->where('fundamount','>',0)->orderBy('id', 'DESC')->first();
+
+            if($surevault == null)
+            {
+                $error['message'] = "You don't have an active vault";
+                return response()->json(['status' => 'failed', 'error'=>$error]);
+            }
+
+            $connect = ConnectBorrowerToLender::where('borrower_request_id', '=', $request->borrower_request_id)->first();
+
+            if($connect != null)
+            {
+                $error['message'] = "A lender has already connected to this borrower";
+                return response()->json(['status' => 'failed', 'error'=>$error]);
+            }    
+
+
+            $data['lender_id'] = $request->user()->id;
+            $data['sure_vault_id'] = $surevault->id;
+
+            $res = ConnectBorrowerToLender::updateOrCreate(['borrower_request_id' => $request->borrower_request_id],$data);
+
+
+            $makerequest = MakeRequest::where(['id' => $request->borrower_request_id])->first();
+            //Update makerequest table set request Status to 1
+            //1 means connected with lender
+            $makerequest->requestStatus = 1;
+            $makerequest->save();
+
+            DB::commit();
+
+            if(env('APP_ENV') != 'local')
+            {
+                $user = User::where(['id' => $request->borrower_id])->first();
+                $this->mail("Loan Connect", $user->name, $user->email,"lender connect");
+            } 
+        }catch(Exception $e)
         {
-            $error['message'] = "You don't have an active vault";
-            return response()->json(['status' => 'failed', 'error'=>$error]);
-        }
-
-        $connect = ConnectBorrowerToLender::where('borrower_request_id', '=', $request->borrower_request_id)
-                                            ->where('status','=', 'pending')
-                                            ->first();
-
-        if($connect != null)
-        {
-            $error['message'] = "A lender has already connected to this borrower";
-            return response()->json(['status' => 'failed', 'error'=>$error]);
+            DB::rollback();
+            $error['message'] = $e;
+            return response()->json(['status' => 'failed', 'error'=>$errors]);
         }    
-        $data['lender_id'] = $request->user()->id;
-        $data['sure_vault_id'] = $surevault->id;
-
-        $res = ConnectBorrowerToLender::updateOrCreate(['borrower_request_id' => $request->borrower_request_id],$data);
-
-        if(env('APP_ENV') != 'local')
-        {
-            $user = User::where(['id' => $request->borrower_id])->first();
-            $this->mail("Loan Connect", $user->name, $user->email,"lender connect");
-        } 
 
        return response(['status' => 'success', 'connect' => $res]);
     }

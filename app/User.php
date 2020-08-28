@@ -17,7 +17,7 @@ class User extends Authenticatable
      * @var array
      */
     protected $fillable = [
-        'name', 'email', 'password',
+        'name', 'email', 'password', 'userType', 'active'
     ];
 
     /**
@@ -82,6 +82,7 @@ class User extends Authenticatable
     {
         return $this->hasOne('App\BankInformation','user_id','id');
     }
+
 
     // public function userhomecountry()
     // {
