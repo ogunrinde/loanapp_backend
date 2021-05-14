@@ -12,7 +12,9 @@ class Repayments extends Model
     	"borrower_request_id",
     	"amount_paid",
     	"date_paid",
-    	"remarks"
+    	"transferInformation",
+        "is_confirmed",
+        "PaymentStatus"
     ];
 
     public function borrower()

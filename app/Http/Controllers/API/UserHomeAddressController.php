@@ -43,7 +43,9 @@ class UserHomeAddressController extends Controller
 
             $res = UserHomeAddress::updateOrCreate(['user_id' => $request->user()->id],$data);
 
-           return response(['status' => 'success', 'userHomeAddress' => $res]);
+           $userhome =  UserHomeAddress::with(['userhomecountry','userhomestate','city'])->where(['user_id' => $request->user()->id])->first();
+
+           return response(['status' => 'success', 'userHomeAddress' => $userhome]);
     }
 
     /**

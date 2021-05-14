@@ -46,7 +46,9 @@ class UserOfficeAddressController extends Controller
 
         $res = UserOfficeAddress::updateOrCreate(['user_id' => $request->user()->id],$data);
 
-       return response(['status' => 'success', 'UserOfficeAddress' => $res]);
+        $useroffice =  UserOfficeAddress::with(['userofficecountry','userofficestate','city'])->where(['user_id' => $request->user()->id])->first();
+
+       return response(['status' => 'success', 'UserOfficeAddress' => $useroffice]);
     }
 
     /**

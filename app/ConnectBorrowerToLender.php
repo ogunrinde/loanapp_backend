@@ -3,14 +3,20 @@
 namespace App;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ConnectBorrowerToLender extends Model
 {
+
+     use SoftDeletes;
+
+
      protected $fillable = [
     	'lender_id',
     	'borrower_id',
     	'sure_vault_id',
-    	'borrower_request_id'
+    	'borrower_request_id',
+        'connection_type'
     ];
 
     public function borrower()

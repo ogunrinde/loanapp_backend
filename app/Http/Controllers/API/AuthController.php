@@ -14,6 +14,10 @@ use App\userroles;
 use App\permissions;
 use App\roles;
 use DB;
+use App\UserHomeAddress;
+use App\UserOfficeAddress;
+use App\UserSocialMediaAccounts;
+use App\BankInformation;
 
 class AuthController extends Controller
 {
@@ -39,7 +43,7 @@ class AuthController extends Controller
 
 	    $accessToken = $user->createToken('authToken')->accessToken;
 
-	    if(env('APP_ENV') != 'local')
+	    if(config('app.env') != 'local')
 			$this->mail("Account Created", $request->name, $request->email);
 
 	    return response(['status' => 'success', 'user' => $user, 'access_token' => $accessToken]);
@@ -160,9 +164,13 @@ class AuthController extends Controller
             return response(['status' => 'failed', 'message' => 'Invalid Credentials']);
         }
 
+       //$route ='';
+
+       $response = $this->Route(auth()->user());
+
         $accessToken = auth()->user()->createToken('authToken')->accessToken;
 
-        return response(['status' => 'success', 'user' => auth()->user(), 'access_token' => $accessToken]);
+        return response(['status' => 'success', 'user' => auth()->user(), 'access_token' => $accessToken, 'route' => $response['route'], 'userinformation' => $response]);
 
     }
 
@@ -174,29 +182,71 @@ class AuthController extends Controller
 	   return true;
 	}
 
+
+	public function Route($user)
+	{
+
+		$userdetails = UserDetails::where(['user_id' => $user->id])->first();
+        $userhome = UserHomeAddress::with(['userhomecountry', 'city', 'userhomestate'])->where(['user_id' => $user->id])->first();
+        $useroffice = UserOfficeAddress::with(['userofficecountry', 'city', 'userofficestate'])->where(['user_id' => $user->id])->first();
+        $socialmedia = UserSocialMediaAccounts::where(['user_id' => $user->id])->first();
+        $bankinfo = BankInformation::where(['user_id' => $user->id])->first();
+
+        $route = '';
+
+        if($userdetails == null)
+        {
+        	$route = '/userprofile';
+        }
+        else if($userhome == null)
+        {
+        	$route = '/userprofile/homeaddress';
+        }
+        else if($useroffice == null)
+        {
+        	$route = '/userprofile/officeaddress';
+        }
+        else if($socialmedia == null)
+        {
+        	$route = '/userprofile/socialmedia';
+        }
+        else if($bankinfo == null)
+        {
+        	$route = '/userprofile/bankinformation';
+        }else {
+        	$route = $userdetails->Is_email_verified == 0 ? '/userprofile/verification' : $route;
+        	$route = $userdetails->Is_phone_number_verified == 0 ? '/userprofile/verification' : $route;
+        	$route = $userhome->date_home_address_verified == '' ? '/userprofile/verification' : $route;
+        	$route = $useroffice->date_office_address_verified == '' ? '/userprofile/verification' : $route;
+        	$route = $bankinfo->Is_BVN_verified == 0 ? '/userprofile/verification' : $route;
+        }
+        $response = array('userdetails' => $userdetails, 'userhome' => $userhome, 'useroffice' => $useroffice,'socialmedia' => $socialmedia,'bankinfo' => $bankinfo,'route' => $route);
+        return $response;
+	}
+
 	public function email_link(Request $request, $email)
 	{
-		if(env('APP_ENV') != 'local')
+		if(config('app.env') != 'local')
 			$this->mail("Verify Account", $request->user()->name, $email);
 
 		return response(['status' => 'success', 'message' => 'Verification Link is Sent to your Email']);
 	}
 
-	public function verify_email(Request $request, $email)
-	{
-		$user = UserDetails::where(['email' => $email])->first();
-		if($user == null)
-		{
-			$error['message'] = "User not Found";
-			return response(['status' => 'failed', 'error' => $error]); 
-		}
+	// public function verify_email(Request $request, $email)
+	// {
+	// 	$user = UserDetails::where(['email' => $email])->first();
+	// 	if($user == null)
+	// 	{
+	// 		$error['message'] = "User not Found";
+	// 		return response(['status' => 'failed', 'error' => $error]); 
+	// 	}
 
-		$user->Is_email_verified = 1;
-		$user->date_email_verified = date('Y-m-d');
-		$user->save();
+	// 	$user->Is_email_verified = 1;
+	// 	$user->date_email_verified = date('Y-m-d');
+	// 	$user->save();
 
-		return response(['status' => 'success', 'message' => 'Email is Verified']);
-	}
+	// 	return response(['status' => 'success', 'message' => 'Email is Verified']);
+	// }
 
 	public function verify_phone(Request $request, $code)
 	{
@@ -227,6 +277,64 @@ class AuthController extends Controller
 		return response(['status' => 'success', 'message' => 'Phone is Verified']);
 	}
 
+	public function verify_email(Request $request, $code)
+	{
+
+		$user = UserDetails::where(['user_id' => $request->user()->id])->first();
+
+		if($user == null)
+		{
+			$error['message'] = "User not Found";
+			return response(['status' => 'failed', 'error' => $error]); 
+		}
+
+		$verify = Verification::where(['type' => 'Email' ,'to_verify' => $user->email, 'code' => $code])->first();
+
+
+		if($verify == null)
+		{
+			$error['message'] = "Invalid Code or Email";
+			return response(['status' => 'failed', 'error' => $error]); 
+		}
+
+		$verify = UserDetails::where(['email' => $verify->to_verify])->first();
+
+		$verify->Is_email_verified = 1;
+		$verify->date_email_verified = date('Y-m-d');
+		$verify->save();
+
+		return response(['status' => 'success', 'message' => 'Email is Verified']);
+	}
+
+	public function emailcode(Request $request)
+	{
+		$user = UserDetails::where(['user_id' => $request->user()->id])->first();
+		if($user == null)
+		{
+			$error['message'] = "User not Found";
+			return response(['status' => 'failed', 'error' => $error]); 
+		}
+		$code = mt_rand(1111111111,9999999999);
+		$insert['to_verify'] = $user->email;
+		$insert['code'] = $code;
+		$insert['type'] = 'Email';
+
+		$res = Verification::updateOrCreate(['to_verify' => $user->email], $insert);
+
+		$message = "This is your verification code ".$code."";
+
+		if(config('app.env') != 'local')
+		{
+
+			 $data = array("subject" => $subject, "name" => $user->firstname ,"message" => $message, "email" => base64_encode($email));
+			  Mail::to($user->email)->send(new Activitymail($data));
+		}
+	  
+	   
+
+	    return response(['status' => 'success']);
+	}
+
 	public function sms(Request $request)
 	{
 
@@ -242,7 +350,7 @@ class AuthController extends Controller
 
 		$ch = curl_init($url);
 
-		$code = uniqid();
+		$code = mt_rand(1111111,9999999);
 		$insert['to_verify'] = $user->mobile1;
 		$insert['code'] = $code;
 		$insert['type'] = 'Phone Number';
@@ -254,7 +362,7 @@ class AuthController extends Controller
 		    'message' => "This is your secret code ".$code.""
 		];
 
-		$res = Verification::Create($insert);
+		$res = Verification::updateOrCreate(['to_verify' => $user->mobile1], $insert);
 
 		$payload = json_encode(['data'=>$data]);
 

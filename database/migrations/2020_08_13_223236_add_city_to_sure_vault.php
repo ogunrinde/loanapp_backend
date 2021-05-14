@@ -14,7 +14,7 @@ class AddCityToSureVault extends Migration
     public function up()
     {
         Schema::table('sure_vaults', function (Blueprint $table) {
-            $table->unsignedBigInteger('borrower_city_id');
+            $table->unsignedBigInteger('borrower_city_id')->nullable();
 
             $table->foreign('borrower_city_id')
             ->references('id')

@@ -41,6 +41,7 @@ Route::group(['middleware' => 'cors'], function(){
 	Route::get('/mail', 'Api\AuthController@mail');
 	Route::put('/verify_email/{email}', 'Api\AuthController@verify_email');
 	Route::get('/countrycodes','Api\AuthController@codes');
+	Route::get('/getbanks', 'Api\BankController@banks');
 	
 	Route::middleware('auth:api')->get('/user', function (Request $request) {
 	    //return $request->user();
@@ -53,6 +54,10 @@ Route::group(['middleware' => 'cors'], function(){
 	       return response(['status' => 'success']);
 	 	})->middleware('permission:Loan Request:create');
 
+
+	   Route::delete('deleterequest/{id}', 'MakeRequestController@destory');
+	   Route::delete('deletevault/{id}', 'SureVaultController@destory');
+	   Route::put('/deactivate/{id}', 'Api\AdminController@deactivate')->middleware('permission:User Management:deactivate');
 
        Route::post('/role', 'Api\RolesController@store')->middleware('permission:User Management:create');
        Route::get('/admins', 'Api\AdminController@index');
@@ -79,6 +84,10 @@ Route::group(['middleware' => 'cors'], function(){
 	   Route::post('/userOfficeAddress', 'Api\UserOfficeAddressController@store');
 	   Route::post('/userSocialMediaAccounts', 'Api\UserSocialMediaAccountController@store');
 	   Route::post('/loanrequest', 'Api\MakeRequestController@store');
+	   Route::post('/loanrequestandconnect/{vaultId}', 'Api\MakeRequestController@loanrequestandconnect');
+
+
+
 	   Route::get('/result', 'Api\MakeRequestController@index');
 	   Route::post('/supplyloan', 'Api\SureVaultController@store');
 	   Route::post('/connectborrowerToLender', 'Api\ConnectBorrowerToLenderController@store');
@@ -103,7 +112,7 @@ Route::group(['middleware' => 'cors'], function(){
 	   Route::post('/getLendersForBorrower','Api\MakeRequestController@getLendersForBorrower');
 	   Route::post('/storerepayment','Api\LoanrepaymentController@store');
 	   Route::get('/repayments_lender','Api\LoanrepaymentController@repayments_lender');
-	   Route::get('/repayments_borrower','Api\LoanrepaymentController@repayments_borrower');
+	   Route::get('/repayments_borrower/{requestId}','Api\LoanrepaymentController@repayments_borrower');
 	   Route::post('/connectwithborrower', 'Api\LoansController@connectwithborrower');
 	   Route::post('/peerlendertoborrower', 'Api\SureVaultController@peerlendertoborrower');
 	   Route::get('/overdueforlender', 'Api\OverdueController@overdueforlender');
@@ -113,9 +122,21 @@ Route::group(['middleware' => 'cors'], function(){
 	   Route::get('/borrower_payment_schedules/{id}','Api\PaymentSchedulesController@borrower_payment_schedules');
 	   Route::get('/lender_payment_schedules/{id}','Api\PaymentSchedulesController@lender_payment_schedules');
 	   Route::post('/verify_phone/{code}', 'Api\AuthController@verify_phone');
+	   Route::post('/verify_email/{code}', 'Api\AuthController@verify_email');
 	   Route::get('/sms', 'Api\AuthController@sms');
+	   Route::get('/emailcode', 'Api\AuthController@emailcode');
 	   Route::get('/email_link/{email}','Api\AuthController@email_link');
 	   Route::post('/updateofferrequeststatus','Api\LoansController@updateofferrequeststatus');
+	   Route::get('/borrowerwithdrawcash/{id}','Api\LoansController@borrowerwithdrawcash');
+	   Route::post('/withdrawfromvault', 'Api\SureVaultController@withdraw');
+
+	   Route::post('/borrowermadepayment/{requestId}', 'Api\LoansController@borrowermadepayment');
+
+	   Route::get('/getrepayment', 'Api\RepaymentController@index');
+
+	   Route::post('/lenderwithdrawcash/{id}','Api\LoansController@lenderwithdrawcash');
+
+
 
 	});
 

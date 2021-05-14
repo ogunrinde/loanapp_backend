@@ -15,6 +15,11 @@ return [
 
     'name' => env('APP_NAME', 'Laravel'),
 
+
+    'LIMIT' => [
+            'key'=> env('LIMIT')
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Application Environment

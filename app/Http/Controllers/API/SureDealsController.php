@@ -14,9 +14,17 @@ use App\MakeRequest;
 use App\PaymentSchedules;
 use App\Mail\Activitymail;
 use Illuminate\Support\Facades\Mail;
+use Config;
 
 class SureDealsController extends Controller
 {
+
+    public $API_SECRET;
+
+    public function __construct()
+    {
+      $this->API_SECRET = Config::get('app.api_secret.key');
+    }
     /**
      * Display a listing of the resource.
      *
@@ -45,11 +53,9 @@ class SureDealsController extends Controller
     {
         $data = $request->all();
         $validator = Validator::make($data, [
-            'Is_cash_disbursed' => 'required',
-            'date_disbursed' => 'required|date',
-            'mode_of_disbursement' => 'required',
             'Amount_disbursed' => 'required|numeric',
-            'dealId' => 'required|numeric'
+            'dealId' => 'required|numeric',
+            'connectionId' => 'required|numeric'
         ]);
 
         if($validator->fails()) { 
@@ -73,21 +79,36 @@ class SureDealsController extends Controller
                 $error['message'] = "Cash is already disbursed";
                 return response()->json(['status' => 'failed', 'error'=>$error]);  
             }
-            $deal->Is_cash_disbursed = $request->Is_cash_disbursed;
-            $deal->date_disbursed = $request->date_disbursed;
-            $deal->mode_of_disbursement = $request->mode_of_disbursement;
-            $deal->Amount_disbursed = $request->Amount_disbursed;
+
+            $result = $this->verify($request->reference);
+
+            
+
+            if(!isset($result['status']) || $result['status'] != 'success')
+            {
+                $error['message'] = "Cash Transfer can not be verify";
+                return response()->json(['status' => 'failed', 'error'=>$error]);
+                //send mail
+            }
+            $deal->Is_cash_disbursed = '1';
+            $deal->date_disbursed = date('Y-m-d');
+            $deal->mode_of_disbursement = 'Paystack Transfer';
+            $deal->Amount_disbursed = (float)$result['data']['amount'] / 100;
+            $deal->verifyresponse = json_encode($result);
+            $deal->PaymentStatus = $result['data']['status'];
             $deal->save();
 
             //Create Withdrawal Table
             $connection = ConnectBorrowerToLender::find($request->connectionId);
+
             if($connection != null)
             {
                 $data = array(
                 "Amount_withdrawn" => $request->Amount_disbursed,
                 "user_id" => $request->user()->id,
                 "make_request_id" => $connection->borrower_request_id,
-                "sure_vault_id"=> $connection->sure_vault_id
+                "sure_vault_id"=> $connection->sure_vault_id,
+                "vault_withdrawal_type" => "transfer to borrower"
                 );
                 $res = VaultWithdrawal::Create($data);
             }  
@@ -108,17 +129,38 @@ class SureDealsController extends Controller
 
             DB::commit();
 
-            if(env('APP_ENV') != 'local')
+             if(config('app.env') != 'local')
                 $this->mail('Sure Deals',$request->user()->name, $request->user()->email, $data);
 
-            $request = suredeals::with(['borrower','lender','connect', 'request'])->where(['lender_id' => $request->user()->id,'Is_cash_disbursed' => '0'])->get();
-            return response(['status' => 'success', 'VaultWithdrawal' => $res,'surevault'=>$vault, 'schedules' => $schedules]);
+            $deals = suredeals::with(['borrower','lender','connect', 'request'])->where(['lender_id' => $request->user()->id,'Is_cash_disbursed' => '0'])->get();
+            return response(['status' => 'success', 'VaultWithdrawal' => $res,'surevault'=>$vault, 'schedules' => $schedules, 'request' => $deals]);
         }catch(Exception $e)
         {
             DB::rollback();
             $error['message'] = $e;
             return response()->json(['status' => 'failed', 'error'=>$error]);
         }  
+    }
+
+    public function verify($reference)
+    {
+        $url = 'https://api.paystack.co/transaction/verify/'.$reference;
+        //open connection
+        $ch = curl_init();
+        //set request parameters 
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Authorization: Bearer '.$this->API_SECRET.'']);
+
+        //send request
+        $request = curl_exec($ch);
+        //close connection
+        curl_close($ch);
+        //declare an array that will contain the result
+        $result = array();
+        if($request)
+        $result = json_decode($request, true);
+        return $result;
     }
 
     public function repaymentstructure($makerequest,$surevault,$amount)

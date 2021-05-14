@@ -17,4 +17,9 @@ class UserOfficeAddress extends Model
     {
         return $this->BelongsTo('App\States','state_id','id');
     }
+
+    public function city()
+    {
+        return $this->BelongsTo('App\City','city_id','id');
+    }
 }

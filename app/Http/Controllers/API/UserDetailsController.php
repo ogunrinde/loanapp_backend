@@ -29,27 +29,47 @@ class UserDetailsController extends Controller
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
+   
     public function store(Request $request)
     {
+
+        //return response(['status' => 'success', 'userdetails' => config('app.env')]);
         $data = $request->all();
         $validator = Validator::make($data, [
             'surname' => 'required|max:55',
             'firstname' => 'required',
-            'middlename' => 'required',
+            //'middlename' => 'required',
             'gender' => 'required',
             'date_of_birth' => 'required|date|date_format:Y-m-d',
             'email'=>'required|email',
-            'mobile1'=>'required|numeric'
+            'mobile1'=>'required|numeric',
+            'image' =>'required|mimes:jpeg,jpg,png|max:2048000'
         ]);
 
         if($validator->fails()) { 
-            return response()->json(['status' => 'failed', 'error'=>$validator->errors()], 401);            
+            return response()->json(['status' => 'failed', 'error'=>$validator->errors()]);            
+        }
+
+        if($request->hasfile('image'))
+        {
+            $file = $request->file('image');
+            $name = uniqid().'.'.$file->extension();
+            $file->move(public_path().'/files/',$name);
+            $data['profileImage'] = $name;
+        }else 
+        {
+            $user = UserDetails::where(['user_id' => $request->user()->id])->first();
+            if($user == null)
+            {
+                $error['message'] = "Profile Image is Required";
+                return response()->json(['status' => 'failed', 'error'=>$error]);
+            }
         }
 
         $data['email'] = $request->user()->email;
         $data['user_id'] = $request->user()->id;
 
-        if(env('APP_ENV') != 'local')
+        if(config('app.env') != 'local')
             $this->mail("Verify Account", $request->user()->name, $request->user()->email);
 
         $res = UserDetails::updateOrCreate(['user_id' => $request->user()->id],$data);
@@ -85,7 +105,7 @@ class UserDetailsController extends Controller
      */
     public function update(Request $request, $id)
     {
-        //
+        
     }
 
     /**

@@ -91,7 +91,7 @@ class ConnectBorrowerToLenderController extends Controller
             $makerequest->save();
             
             DB::commit();
-            if(env('APP_ENV') != 'local')
+            if(config('app.env') != 'local')
                 $this->mail("Loan Request",$lender->name,$lender->email);
 
             return response(['status' => 'success', 'connectRequest' => $res]);

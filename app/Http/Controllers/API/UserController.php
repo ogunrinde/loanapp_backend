@@ -73,13 +73,9 @@ class UserController extends Controller
 
     public function getcompleteuserprofile(Request $request)
     {
-        $userdetails = UserDetails::where(['user_id' => $request->user()->id])->first();
-        $homeaddress = UserHomeAddress::where(['user_id' => $request->user()->id])->first();
-        $officeaddress = UserOfficeAddress::where(['user_id' => $request->user()->id])->first();
-        $socialmedia = UserSocialMediaAccounts::where(['user_id' => $request->user()->id])->first();
-        $bankdetails = BankInformation::where(['user_id' => $request->user()->id])->first();
+        $response = (new AuthController)->Route($request->user());
 
-        return response()->json(['status' => 'success', 'userdetails' => $userdetails, 'homeaddress' => $homeaddress,'officeaddress'=>$officeaddress, 'socialmedia' => $socialmedia, 'bankdetails' => $bankdetails]);
+        return response()->json(['status' => 'success', 'userdetails' => $userdetails, 'homeaddress' => $homeaddress,'officeaddress'=>$officeaddress, 'socialmedia' => $socialmedia, 'bankdetails' => $bankdetails, 'route' => $response['route'], 'userinformation' => $response ]);
 
     }
 
@@ -88,6 +84,8 @@ class UserController extends Controller
         $requests = MakeRequest::with('connect')->where(['user_id' => $request->user()->id])->get();
         return response()->json(['status' => 'success', 'requests' => $requests]);
     }
+
+    
 
     
 }

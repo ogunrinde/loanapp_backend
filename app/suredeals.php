@@ -11,7 +11,8 @@ class suredeals extends Model
     	'lender_id',
     	'borrower_id',
     	'request_id',
-    	'LoanID'
+    	'LoanID',
+        'PaymentStatus'
     ];
 
     public function connect()

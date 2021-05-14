@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
@@ -128,6 +128,23 @@ class AdminController extends Controller
         $res = array("suredeals" => $suredeals, "users" => $users->count(), "disbursed" => $disbursed, "loanrequest" => $makerequest, "surevault" => $fundamount);
 
         return response(['status' => 'success', "analytics" => $res]);
+    }
+
+    public function deactivate(Request $request, $id)
+    {
+       $user = User::find($id);
+
+       if($user == null)
+       {
+          $error['message'] = "User not Found";
+          return response(['status' => 'failed', "error" => $error]);
+       }
+       $user->deactivated = 1;
+       $user->deactivated_at = date("Y-m-d H:i:s");
+       $user->deactivated_by = $request->user()->id;
+       $user->save();
+
+       return response(['status' => 'success', "message" => "User deactivated Successfully"]);
     }
 
    

@@ -3,9 +3,14 @@
 namespace App;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SureVault extends Model
 {
+
+    use SoftDeletes;
+
+
     protected $fillable = [
     	'fundamount',
     	'availablefrom',
@@ -22,8 +27,12 @@ class SureVault extends Model
         'minloantenor',
         'maxloantenor',
         'borrower_city_id',
-        'vault_creation_type'
+        'vault_creation_type',
+        'creditbureau_report_required'
+
     ];
+
+    protected $dates = ['deleted_at'];
 
 
     public function user()

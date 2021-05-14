@@ -13,9 +13,14 @@ class UserHomeAddress extends Model
         return $this->BelongsTo('App\Countries','country_id','id');
     }
 
-     public function userhomestate()
+    public function userhomestate()
     {
         return $this->BelongsTo('App\States','state_id','id');
+    }
+
+    public function city()
+    {
+        return $this->BelongsTo('App\City','city_id','id');
     }
 
 }

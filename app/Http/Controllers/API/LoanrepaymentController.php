@@ -27,10 +27,10 @@ class LoanrepaymentController extends Controller
         return response()->json(['status' => 'success', 'repayments'=>$request]);
     }
 
-    public function repayments_borrower(Request $request)
+    public function repayments_borrower(Request $request, $id)
     {
-        $request = Repayments::with(['lender','request', 'borrower'])->where(['borrower_id' => $request->user()->id])->get();
-        return response()->json(['status' => 'success', 'repayments'=>$request]);
+        $req = Repayments::with(['lender','request', 'borrower'])->where(['borrower_request_id' => $id])->get();
+        return response()->json(['status' => 'success', 'repayments'=>$req]);
     }
 
     /**
@@ -67,7 +67,7 @@ class LoanrepaymentController extends Controller
 
         $res = Repayments::Create($data);
 
-        if(env('APP_ENV') != 'local')
+        if(config('app.env') != 'local')
             $this->mail("Loan Repayment", $lender->name, $lender->email, $data);
 
         return response(['status' => 'success', 'repayment' => $res]);

@@ -14,10 +14,12 @@ class RemoveColumnFromSurevault extends Migration
     public function up()
     {
         Schema::table('sure_vaults', function (Blueprint $table) {
-            Schema::table('sure_vaults', function (Blueprint $table) {
-                 $table->dropForeign(['city_id']);
-                $table->dropColumn('city_id');
-            });
+            if(Schema::hasColumn('sure_vaults', 'borrower_city_id')) 
+            {
+                $table->dropForeign(['borrower_city_id']);
+                $table->dropColumn('borrower_city_id');
+            }
+            
         });
     }
 

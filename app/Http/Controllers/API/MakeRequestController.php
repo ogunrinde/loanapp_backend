@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Validator;
 use App\User;
 use App\UserDetails;
 use App\UserHomeAddress;
+use App\ConnectBorrowerToLender;
+use DB;
 
 class MakeRequestController extends Controller
 {
@@ -47,8 +49,6 @@ class MakeRequestController extends Controller
             'repaymentplan' => 'required|string',
             'requiredcreditBereau' => 'required',
             'mobile' => 'required'
-            // 'lender_country_id' => 'required|numeric',
-            // 'lender_state_id' => 'required|numeric'
         ]);
 
         if($validator->fails()) { 
@@ -67,21 +67,49 @@ class MakeRequestController extends Controller
 
         $userhomeaddress = UserHomeAddress::where(['user_id' => $userdetails->user_id])->first();
 
-        $data['lender_country_id'] = $userhomeaddress->country_id;
-        $data['lender_state_id'] = $userhomeaddress->state_id;
-        $data['lender_city_id'] = $userhomeaddress->city_id;
+        $data['borrower_country_id'] = $userhomeaddress->country_id;
+        $data['borrower_state_id'] = $userhomeaddress->state_id;
+        $data['borrower_city_id'] = $userhomeaddress->city_id;
         $data['user_id'] = $request->user()->id;
         $data['request_type'] = 'peer to peer';
 
-        $res = MakeRequest::Create($data);
 
-        $surevault = SureVault::where('user_id', '=', $userdetails->user->id)
-                                ->where('fundamount','>', 0)
-                                ->with('user')->get();
-       
-        $res['peer'] = 1;                       
+        $surevault = SureVault::where('user_id','=',$userdetails->user_id)->where('fundamount','>',$request->requestAmount)->first();
 
-        return response(['status' => 'success', 'loanrequest' => $res, 'offers' => $surevault]);
+        if($surevault == null)
+        {
+            $error['message'] = "In Sufficient fund, Contact the Lender";
+            return response()->json(['status' => 'failed', 'error'=>$error]);
+        }
+
+        DB::beginTransaction();
+
+        try {
+
+            $res = MakeRequest::Create($data);
+            $toinsert = array('borrower_id' => $request->user()->id, 
+                        'lender_id' => $surevault->user_id,
+                        'sure_vault_id' => $surevault->id, 
+                        'borrower_request_id' => $res->id, 
+                        'status' => 'pending'); 
+            ConnectBorrowerToLender::updateOrCreate(['borrower_request_id' => $res->id],$toinsert); 
+
+            $makerequest = MakeRequest::where(['id' => $res->id])->first();
+            
+            $makerequest->requestStatus = 1;
+            $makerequest->save();
+
+            DB::commit();
+                             
+
+           return response(['status' => 'success', 'res' => $res]);
+
+        }catch(Exception $e)
+        {
+            DB::rollback();
+            $error['message'] = $e;
+            return response()->json(['status' => 'failed', 'error'=>$errors]);
+        }
 
     }
 
@@ -111,8 +139,9 @@ class MakeRequestController extends Controller
             'minInterestRate' => 'required|numeric',
             'repaymentplan' => 'required|string',
             'requiredcreditBereau' => 'required',
-            'lender_country_id' => 'required|numeric',
-            'lender_state_id' => 'required|numeric'
+            'borrower_country_id' => 'required|numeric',
+            'borrower_state_id' => 'required|numeric',
+            'borrower_city_id' => 'required|numeric'
         ]);
 
         if($validator->fails()) { 
@@ -128,6 +157,81 @@ class MakeRequestController extends Controller
         $result = $this->processRequest($request);
 
        return response(['status' => 'success', 'loanrequest' => $res, 'offers' => $result]);
+    }
+
+    public function loanrequestandconnect(Request $request, $vaultId)
+    {
+
+        $data = $request->all();
+        $validator = Validator::make($data, [
+            'requestAmount' => 'required|numeric',
+            'loanperiod' => 'required',
+            'maxInterestRate' => 'required|numeric',
+            'repaymentplan' => 'required|string',
+            'requiredcreditBereau' => 'required'
+        ]);
+
+        if($validator->fails()) { 
+            return response()->json(['status' => 'failed', 'error'=>$validator->errors()]);            
+        }
+
+        $vault = SureVault::where(['id' => $vaultId])->first();
+
+        if($vault == null)
+        {
+            $error['message'] = "Unknown Vault";
+            return response()->json(['status' => 'failed', 'error'=>$error]);  
+        }
+
+        if($request->requestAmount < $vault->minRequestAmount)
+        {
+            $error['message'] = "Request Amount does not Match with Lender Specifications";
+            return response()->json(['status' => 'failed', 'error'=>$error]); 
+        }
+
+        if($request->maxInterestRate < $vault->minInterestperMonth)
+        {
+            $error['message'] = "Request Amount does not Match with Lender Minimum Interest Specifications";
+            return response()->json(['status' => 'failed', 'error'=>$error]); 
+        }
+
+        if($request->requestAmount > $vault->maxRequestAmount)
+        {
+            $error['message'] = "Request Amount does not Match with Lender Specifications";
+            return response()->json(['status' => 'failed', 'error'=>$error]); 
+        }
+
+        if($vault->borrower_country_id != '' && $vault->borrower_country_id != $request->borrower_country_id)
+        {
+            $error['message'] = "Borrower Country does not Match with Lender Specifications";
+            return response()->json(['status' => 'failed', 'error'=>$error]); 
+        }
+
+        if($vault->borrower_state_id != '' && $vault->borrower_state_id != $request->borrower_state_id)
+        {
+            $error['message'] = "Borrower State does not Match with Lender Specifications";
+            return response()->json(['status' => 'failed', 'error'=>$error]); 
+        }
+
+        if($vault->borrower_city_id != '' && $vault->borrower_city_id != $request->borrower_city_id)
+        {
+            $error['message'] = "Borrower City does not Match with Lender Specifications";
+            return response()->json(['status' => 'failed', 'error'=>$error]); 
+        }
+
+        $data['user_id'] = $request->user()->id;
+        $data['request_type'] = 'open request';
+        $data['borrower_country_id'] = $vault->borrower_country_id;
+        $data['borrower_state_id'] = $vault->borrower_state_id;
+        $data['borrower_city_id'] = $vault->borrower_city_id;
+        $data['minInterestRate'] = $request->maxInterestRate;
+        //$data['lender_city_id'] = $request->lender_city_id;
+
+        $res = MakeRequest::Create($data);
+
+        //$result = $this->processRequest($request);
+
+       return response(['status' => 'success', 'loanrequest' => $res]);
     }
 
     public function processRequest($request)
@@ -169,6 +273,16 @@ class MakeRequestController extends Controller
      */
     public function destroy($id)
     {
-        //
+       $connect =  ConnectBorrowerToLender::where(['borrower_request_id' => $id])->first();
+
+       if($connect != null)
+       {
+         $error['message'] = "You are already connected to a lender, thus you can not delete this request";
+         return response(['status' => 'failed', 'error' => $error]);
+       }
+
+       $data = MakeRequest::find($id)->delete();
+
+       return response(['status' => 'success', 'request' => 'Request Deleted Successfully']);
     }
 }
